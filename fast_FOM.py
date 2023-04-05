@@ -25,7 +25,7 @@ ax = plt.axes(projection ="3d")
 TU = 382981.2891290545 # seconds/TU
 LU = 389703 # 1 LU (distance from Earth to Moon in km)
 moon_rad = 1740/LU # radius of the Moon in [km]
-moonPos = [0.98784942,0,0] # LU 
+moonPos = np.array([0.98784942,0,0]) # LU 
 lat_spacing = 10 # [deg]
 max_points = 12 
 latitude = np.linspace(90,-90,19)
@@ -38,50 +38,15 @@ sToHr = (1/(60*60))
 ############## Grid point Calcluation ##########
 ################################################
 
-points = []
-counter = 0
-# northern hemisphere 
-for i in latitude: 
-    radians = np.radians(i)
-    points += [abs(round(max_points*np.cos(radians)))]
-    counter = counter+1
+grid_point_coordinates = np.genfromtxt('FOMLoad.csv', delimiter=',') # x, y, z, r,theta,phi,lat,long
+grid_point_coordinates[:,0] = grid_point_coordinates[:,0] + 0.98784942 
+grid_point_coordinates = grid_point_coordinates[:,0:3]
+totalPoints = len(grid_point_coordinates[:,0])
 
-totalPoints = sum(points)
-print('Simulating',totalPoints,'grid points...')
-time.sleep(2)
-# ax = plt.axes(projection = '3d')
-# sys = System(mu=0.01215058560962404, lstar=389703.2648292776, tstar=382981.2891290545)
-# ax = sys.plot_system()
-coordinates = []
-i = 0
-for point in points: 
-    if point == 1 or point == 0: 
-        longitude = np.linspace(0,360,point)
-    else: 
-        longitude = np.linspace(0,(360/point)*(point-1),point)
-    
-    # offset longitude by 45 deg every sencond latitude 
-    if not i % 2: 
-        longitude = longitude + 45 
-        for long in longitude:
-            if long > 360: 
-                long = long - 360
-
-    lat = latitude[i]
-    theta = -lat + 90
-    for long in longitude:
-        z = moon_rad*np.cos(np.radians(theta))
-        x = moon_rad*np.sin(np.radians(theta))*np.cos(np.radians(long))
-        y = moon_rad*np.sin(np.radians(theta))*np.sin(np.radians(long))
-        r = np.sqrt(x**2 + y**2 + z**2)
-        phi = long
-        data = [x,y,z,r,theta,phi,lat,long] # LU LU LU LU deg deg deg deg 
-        ax.scatter3D(x,y,z)
-        coordinates.append(data)
-    i = i + 1 
-
-
-plt.show()
+# plot grid points 
+ax = plt.axes(projection ="3d") 
+ax.scatter3D(grid_point_coordinates[:,0],grid_point_coordinates[:,1],grid_point_coordinates[:,2])
+# plt.show()
 
 #################################################
 ############# Orbit Simulation #################
@@ -93,24 +58,19 @@ ax.set_ylabel('y')
 ax.set_zlabel('z')
 filename = 'trajectories/orbit1.dat'
 orb1 = orbitDict.chosenOrbits.load(filename)
-# filename = 'trajectories/orbit5.dat'
-# orb2 = orbitDict.chosenOrbits.load(filename)
-# filename = 'trajectories/orbit45.dat'
-# orb3 = orbitDict.chosenOrbits.load(filename)
 orbits = [orb1]
 numSats = [1]
 
 periodTU = orb1.T # TU 
 periodDays = periodTU*TU*(1/60)*(1/60)*(1/24) # [days]
 loops = round(synodicS/100)
-# print(loops)
-# time.sleep(20)
 rows = totalPoints
 cols = loops
 rotate = 360/(synodicS/100) # deg to rotate per loop 
-coverageMain = np.zeros((rows,cols))
+coverageMain = np.zeros((rows,cols)) # each row corresponds to a grid point, each col corresponds to a time 
 counter = 0 
-# go through each orbit 
+# go through each orbit
+
 
 a = 1
 
@@ -119,7 +79,7 @@ for orb in orbits:
     coverage = np.zeros((rows,cols)) # rows = points, cols = time 
     timeCounterCoverage = 0 # restart time counter goes with loops 
     counterLoops = 0 # restarting orbits counter 
-    counterRotate = 0 # 
+   
     if not numSats[counter] == 0:
         for i in range(loops): 
             
@@ -130,36 +90,56 @@ for orb in orbits:
             sat_xPos = orb.x[i]
             sat_yPos = orb.y[i]
             sat_zPos = orb.z[i]
+            # sat_xPos = orb.x
+            # sat_yPos = orb.y
+            # sat_zPos = orb.z
 
+            r_spacecraft = [sat_xPos, sat_yPos, sat_zPos] # vector from center of earth to satellite
+            # print(r_spacecraft)
+            # time.sleep(20)
+            r_spacecraftToPoint = [grid_point_coordinates[:,0] - sat_xPos, grid_point_coordinates[:,1] - sat_yPos, grid_point_coordinates[:,2] - sat_zPos] # vector sat to point
+            r_moonToPoint = [grid_point_coordinates[:,0]-moonPos[0],grid_point_coordinates[:,1]-moonPos[1],grid_point_coordinates[:,2]-moonPos[2]]# vector from center of moon to point 
+            r_moonToSat = [r_spacecraft[0]-moonPos[0],r_spacecraft[1]-moonPos[1],r_spacecraft[2]-moonPos[2]] # vector from moon center to sat 
+            # print(r_moonToSat)
+            r_moonToSat = np.array(r_moonToSat)
+            # print(r_moonToSat)
+            r_moonToSat = r_moonToSat.reshape(3,1)
+            # print(r_moonToSat)
+            # time.sleep(10)
+            print(r_spacecraft)
+            print(len(r_spacecraft))
+            print(len(grid_point_coordinates[:,0]))
+            print(r_spacecraftToPoint)
+            print(len(r_spacecraftToPoint))
+
+            time.sleep(20)
+            part1 = np.sum(np.array(r_spacecraftToPoint)*r_moonToPoint,axis=1)
+            part2 = np.sum(np.abs(r_spacecraftToPoint)**2,axis=-1)**(1./2)
+            part3 = np.sum(np.abs(r_moonToPoint)**2,axis=1)**(1./2)
+            part4 = part2*part3 
+            part5 = part1 / part4
+            angle1 = np.arccos(part5)
+
+            part1B = np.sum(r_moonToSat*r_moonToPoint,axis=1)
+            part2B = np.sum(np.abs(r_moonToSat)**2,axis=-1)**(1./2)
+            part3B = np.sum(np.abs(r_moonToPoint)**2,axis=1)**(1./2)
+            part4B = part2B*part3B 
+            part5B = part1B / part4B
+            angle2 = np.arccos(part5B)
+
+            idxAngle1 = np.where(angle1 > np.pi/2) # gives us the indices that are
+            idxAngle2 = np.where(angle2 < np.pi/2) # gives us the indices that are
+            idx = np.intersect1d(idxAngle1,idxAngle2)
+            print(angle1)
+            # print(idxAngle1)
+            coverage[idx,timeCounterCoverage] = 1
 
             # go through each grid point 
-            for k in range(totalPoints):
-                currentPoint = coordinates[k]
-                point_r = currentPoint[3]
-                point_theta = currentPoint[4]
-                point_phi = currentPoint[5] 
-                
-                point_zPos = point_r*np.cos(np.radians(point_theta))
-                point_xPos = point_r*np.sin(np.radians(point_theta))*np.cos(np.radians(point_phi)) + 0.98784942 
-                point_yPos = point_r*np.sin(np.radians(point_theta))*np.sin(np.radians(point_phi))
-
-
-                r_point = [point_xPos, point_yPos, point_zPos] # vector from center of earth to grid point 
-                r_spacecraft = [sat_xPos, sat_yPos, sat_zPos] # vector from center of earth to satellite 
-                r_spacecraftToPoint = [point_xPos - sat_xPos, point_yPos - sat_yPos, point_zPos - sat_zPos] # vector sat to point
-                r_moonToPoint = [r_point[0]-moonPos[0],r_point[1]-moonPos[1],r_point[2]-moonPos[2]]# vector from center of moon to point 
-                r_moonToSat = [r_spacecraft[0]-moonPos[0],r_spacecraft[1]-moonPos[1],r_spacecraft[2]-moonPos[2]] # vector from moon center to sat 
-
-                angle1 = np.arccos((np.dot(r_spacecraftToPoint,r_moonToPoint)/(np.linalg.norm(r_spacecraftToPoint)*np.linalg.norm(r_moonToPoint))))
-                angle2 = np.arccos((np.dot(r_moonToSat,r_moonToPoint)/(np.linalg.norm(r_moonToSat)*np.linalg.norm(r_moonToPoint))))
-                
-                if (int(angle1) > (np.pi / 2) and int(angle2) < (np.pi / 2)) or (coverage[k,timeCounterCoverage] == 1):
-                    coverage[k,timeCounterCoverage] = 1
-                    # print('k, timecounter, coverage ',k,timeCounterCoverage,coverage[k][timeCounterCoverage])    
-                else:
-                    coverage[k,timeCounterCoverage] = 0
+            # print(coverage[idx,timeCounterCoverage])
+            time.sleep(1)
+            
  
-            counterRotate = counterRotate+1 
+            
             timeCounterCoverage = timeCounterCoverage+1 
 
         ################ Phasing multiple satellites  ########################
