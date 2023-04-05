@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import orbitDict
 import time 
-from csltk.utilities import System
+#from csltk.utilities import System
 import math 
 
 def reorder(lst, newIdx):
@@ -172,66 +172,68 @@ for orb in orbits:
     
 print('Calculating FOM...')
 ###################################################
-############## calculate FOM ######################     done once per design 
+############## calculate FOM ######################     done once per design
 ###################################################
-if np.count_nonzero(coverageMain) == loops*totalPoints:
-    percentCoverage = np.zeros(totalPoints) + 100 # % covered 
-    maxCoverageGap = np.zeros(totalPoints) # longest coverage gap by each point 
-    meanCoverageGap = np.zeros(totalPoints) # average coverage gap for each point 
-    timeAvgGap = np.zeros(totalPoints) # time avg gap for each point 
-    meanResponseTime = np.zeros(totalPoints) 
-else: 
-    percentCoverage = np.zeros(totalPoints) # % covered 
-    maxCoverageGap = np.zeros(totalPoints) # longest coverage gap by each point 
-    meanCoverageGap = np.zeros(totalPoints) # average coverage gap for each point 
-    timeAvgGap = np.zeros(totalPoints) # time avg gap for each point 
-    meanResponseTime = np.zeros(totalPoints) 
-    for i in range(totalPoints):
 
-        percentCoverage[i] = (np.count_nonzero(coverageMain[i,:])/loops)*100 # percent of time each grid point is seen [%]
-        
-        if np.count_nonzero(coverageMain[i,:]) == loops:
-            #print('all 1')
-            timeAvgGap[i] = 0 
-            meanCoverageGap[i] = 0 
-            maxCoverageGap[i] = 0
-            meanResponseTime[i] = 0 
-        elif np.count_nonzero(coverageMain[i,:]) == 0:
-            #print('all 0')
-            meanCoverageGap[i] = loops*100 # mean coverage gap for grid point i [s]
-            timeAvgGap[i] = loops*100 # [s]
-            maxCoverageGap[i] = loops*100 # seconds of maximum coverage gap for grid point i [s]
-            meanResponseTime[i] = loops*100 # s
-        else:
-            #print('mix')
-            counterMCG = 0 # counter consecutive 0s, coverage gap 
-            coverageGaps = [] # length of coverage gaps  
-            meanRT = []
-            for j in range(loops):
-                # if coverage[i,j] == 1: 
-                #     print(i,coverage[i,j])
-                if coverageMain[i,j] == 0: # if uncovered 
-                    counterMCG = counterMCG + 1 # +1 counter of gap 
-                    meanRT.append(counterMCG)  
-                else: 
-                    if not counterMCG == 0:
-                        coverageGaps.append(counterMCG)
-                        counterMCG = 0  
-            if not counterMCG == 0:
-                coverageGaps.append(counterMCG)               
-            numGaps = len(coverageGaps)
-            if numGaps == 0: 
-                numGaps = 1
-            meanCoverageGap[i] = (sum(coverageGaps)/numGaps)*100 # mean coverage gap for grid point i [s]
-            timeAvgGap[i] = (sum(np.array(coverageGaps)**2)/loops)*100 # [s]
-            maxCoverageGap[i] = max(coverageGaps)*100 # seconds of maximum coverage gap for grid point i [s]
-            meanResponseTime[i] = (sum(meanRT)/loops)*100 # s
-            
+coverageMainNP = np.array(coverageMain)
+if np.count_nonzero(coverageMainNP) == loops * totalPoints:
+    percentCoverage = np.zeros(totalPoints) + 100  # % covered
+    maxCoverageGap = np.zeros(totalPoints)  # longest coverage gap by each point
+    meanCoverageGap = np.zeros(totalPoints)  # average coverage gap for each point
+    timeAvgGap = np.zeros(totalPoints)  # time avg gap for each point
+    meanResponseTime = np.zeros(totalPoints)
+else:
+    percentCoverage = np.zeros(totalPoints)  # % covered
+    maxCoverageGap = np.zeros(totalPoints)  # longest coverage gap by each point
+    meanCoverageGap = np.zeros(totalPoints)  # average coverage gap for each point
+    timeAvgGap = np.zeros(totalPoints)  # time avg gap for each point
+    meanResponseTime = np.zeros(totalPoints)
+    for i in range(totalPoints):
+        arr = coverageMain[i, :]
+        checkArr = arr
+        checkArr = np.append(checkArr,1)  # adding a 1 to the start and end so the diff function works if theres no LOS to start
+        checkArr = np.insert(checkArr, 0, 1)
+        # find the indices where the array changes value from 0 to 1
+        zero_indices = np.where(checkArr == 1)[0]  # Find the indices of all zeros
+        zero_diffs = np.diff(zero_indices)  # Compute the differences between adjacent indices
+
+        maxCoverageGap[i] = (max(np.concatenate(([0], zero_diffs)) - 1))*100  # Find the maximum number of repeated zeros
+        print("MCG ",maxCoverageGap[i])
+        #print("Max cov gap ", maxCoverageGap)
+        zero_gaps = np.concatenate(([0], zero_diffs)) - 1
+
+        ### Getting Mean Coverage Gap ########
+        zero_list = np.delete(zero_gaps, [0])  # deleting the first appended element because it always comes to -1 due to line 28, i wont lose any data from this
+        # print("Zeroslist ", zero_list)
+        numGaps = np.count_nonzero(zero_list)
+        meanCoverageGap[i] = (np.sum(zero_list) / numGaps)*100
+        #print("mean cog gap ", meanCoverageGap)
+
+        ######### GETTING PERCENT COVERAGE ############
+        percentCoverage[i] = (np.count_nonzero(arr) / (len(arr))) * 100
+        #print("percent coverage ", percentCoverage)
+        ######## TIME AVG GAP #########
+        timeAvgGap[i] = ((np.sum(zero_list ** 2)) / len(arr)) * 100
+        #print("Time Avg Gap", timeAvgGap)
+
+        ####### MEAN RESPONSE TIME #######
+        # using formula for nth trinagular numbers
+        # zero array * ((n + (n+1) / 2)
+        mask = zero_list != 0
+        zero_list_MRT = zero_list[mask]
+        MRTvecA = zero_list_MRT + 1  # this is the (n + 1) step
+        MRTvecB = MRTvecA * zero_list_MRT  # this is the (n * (n+1)) step
+        MRTvecC = MRTvecB / 2  # final MRT vec # this the (n * (n+1)) /2 step
+
+        meanResponseTime[i] = (sum(MRTvecC) / len(arr))*100
+        #print("MRT ", meanResponseTime)
+
+print("Length PERC COV ",len(percentCoverage),"Length MAX GAP ",len(maxCoverageGap),"Length MEAN GAP ",len(meanCoverageGap),"MRT ",len(meanCoverageGap), "Length TIME AVG GAP ",len(timeAvgGap))
 ###############################################
 #################### Score / Return ####################
 ###############################################
 
-# return 
+# return
 
 # weightPC = 0.2
 # weightMaxCG = 0.15
@@ -248,20 +250,26 @@ else:
 # ax.plot(orb.x,orb.y,orb.z)
 # ax.set_aspect('auto')
 for i in range(totalPoints):
-    print('Point:',i,', Percent Coverage:',round(percentCoverage[i]),'%, Max Coverage Gap:',round(maxCoverageGap[i])*sToHr,'hr, Mean Coverage Gap:',round(meanCoverageGap[i])*sToHr,'hr, Time avg Gap:',round(timeAvgGap[i])*sToHr,'hr, Mean Response Time:',round(meanResponseTime[i])*sToHr,'hr')
-    #print('Percent Coverage:',round(percentCoverage[i]),'%, Max Coverage Gap:',round(maxCoverageGap[i]*sToHr),'hr, Mean Coverage Gap:',round(meanCoverageGap[i]*sToHr),'hr, Time avg Gap:',round(timeAvgGap[i]*sToHr),'hr, Mean Response Time:',round(meanResponseTime[i]*sToHr),'hr')
+     print('Point:', i, ', Percent Coverage:', round(percentCoverage[i]), '%, Max Coverage Gap:',
+           round(maxCoverageGap[i]) * sToHr, 'hr, Mean Coverage Gap:', round(meanCoverageGap[i]) * sToHr,
+           'hr, Time avg Gap:', round(timeAvgGap[i]) * sToHr, 'hr, Mean Response Time:',
+           round(meanResponseTime[i]) * sToHr, 'hr')
 
-
-end = time.time()
-print( end-start, 's' )
 ############################
+avgPercentCoverage = np.mean(percentCoverage)
+avgMaxCoverageGap = np.mean(maxCoverageGap)
+avgMeanCoverageGap = np.mean(meanCoverageGap)
+avgTimeAvgGap = np.mean(timeAvgGap)
+avgMeanResponseTime = np.mean(meanResponseTime)
+
+print("PERC COV ",avgPercentCoverage,"MAX GAP ",avgMaxCoverageGap,"MEAN GAP ",avgMeanCoverageGap,"MRT ",avgMeanResponseTime, "TIME AVG GAP ",avgTimeAvgGap)
 
 
 # # ax.scatter(coordinates[:][])
 # # time = (coverage.count(1))*100
 # # print(time, 'in Seconds')
-# end = time.time()
-# print('run time:',(end-start)/60,'min')
+end = time.time()
+print('run time: ', end-start)
 
 # plt.show()
 
