@@ -90,35 +90,33 @@ for orb in orbits:
             sat_xPos = orb.x[i]
             sat_yPos = orb.y[i]
             sat_zPos = orb.z[i]
-            # sat_xPos = orb.x
-            # sat_yPos = orb.y
-            # sat_zPos = orb.z
+            
+            ############# new stuff ##################
 
             r_spacecraft = [sat_xPos, sat_yPos, sat_zPos] # vector from center of earth to satellite
-            # print(r_spacecraft)
-            # time.sleep(20)
-            r_spacecraftToPoint = [grid_point_coordinates[:,0] - sat_xPos, grid_point_coordinates[:,1] - sat_yPos, grid_point_coordinates[:,2] - sat_zPos] # vector sat to point
-            r_moonToPoint = [grid_point_coordinates[:,0]-moonPos[0],grid_point_coordinates[:,1]-moonPos[1],grid_point_coordinates[:,2]-moonPos[2]]# vector from center of moon to point 
+            r_spacecraftToPoint = np.zeros((len(grid_point_coordinates[:,0]), 3))
+            r_spacecraftToPoint[:,0] = grid_point_coordinates[:,0] - sat_xPos
+            r_spacecraftToPoint[:,1] = grid_point_coordinates[:,1] - sat_yPos
+            r_spacecraftToPoint[:,2] = grid_point_coordinates[:,2] - sat_zPos
+            r_moonToPoint = np.zeros((len(grid_point_coordinates[:,0]), 3))
+            r_moonToPoint[:,0] = grid_point_coordinates[:,0] - moonPos[0]
+            r_moonToPoint[:,1] = grid_point_coordinates[:,1] - moonPos[1]
+            r_moonToPoint[:,2] = grid_point_coordinates[:,2] - moonPos[2]
             r_moonToSat = [r_spacecraft[0]-moonPos[0],r_spacecraft[1]-moonPos[1],r_spacecraft[2]-moonPos[2]] # vector from moon center to sat 
-            # print(r_moonToSat)
+            
             r_moonToSat = np.array(r_moonToSat)
-            # print(r_moonToSat)
-            r_moonToSat = r_moonToSat.reshape(3,1)
-            # print(r_moonToSat)
-            # time.sleep(10)
-            print(r_spacecraft)
-            print(len(r_spacecraft))
-            print(len(grid_point_coordinates[:,0]))
-            print(r_spacecraftToPoint)
-            print(len(r_spacecraftToPoint))
+            
+            
+            
 
-            time.sleep(20)
+            
             part1 = np.sum(np.array(r_spacecraftToPoint)*r_moonToPoint,axis=1)
             part2 = np.sum(np.abs(r_spacecraftToPoint)**2,axis=-1)**(1./2)
             part3 = np.sum(np.abs(r_moonToPoint)**2,axis=1)**(1./2)
             part4 = part2*part3 
             part5 = part1 / part4
             angle1 = np.arccos(part5)
+            
 
             part1B = np.sum(r_moonToSat*r_moonToPoint,axis=1)
             part2B = np.sum(np.abs(r_moonToSat)**2,axis=-1)**(1./2)
@@ -126,17 +124,22 @@ for orb in orbits:
             part4B = part2B*part3B 
             part5B = part1B / part4B
             angle2 = np.arccos(part5B)
+            
+
 
             idxAngle1 = np.where(angle1 > np.pi/2) # gives us the indices that are
             idxAngle2 = np.where(angle2 < np.pi/2) # gives us the indices that are
             idx = np.intersect1d(idxAngle1,idxAngle2)
-            print(angle1)
-            # print(idxAngle1)
+            
+            
             coverage[idx,timeCounterCoverage] = 1
-
+            # print(coverage[idx,timeCounterCoverage])
+            
             # go through each grid point 
             # print(coverage[idx,timeCounterCoverage])
-            time.sleep(1)
+
+            
+           
             
  
             
@@ -249,7 +252,8 @@ for i in range(totalPoints):
     #print('Percent Coverage:',round(percentCoverage[i]),'%, Max Coverage Gap:',round(maxCoverageGap[i]*sToHr),'hr, Mean Coverage Gap:',round(meanCoverageGap[i]*sToHr),'hr, Time avg Gap:',round(timeAvgGap[i]*sToHr),'hr, Mean Response Time:',round(meanResponseTime[i]*sToHr),'hr')
 
 
-
+end = time.time()
+print( end-start, 's' )
 ############################
 
 
